@@ -16,6 +16,7 @@ tFinal  = 4;
 Tolfac = 10^(-7);
 L_inf_residual = 10^10;
 omega = 0.1;
+uLid = 1;
 
 %% Calcluated inputs
 dT = C * min(1/4 * dX^2/nu);
@@ -61,20 +62,17 @@ end
 for t = 1:length(0:dT:tFinal)
     %% Applying boundary conditions to the velocity field
     % Left boundary
-    u(1,:) = 0;
-    v(1,:) = -v(2,:);
+    u(1,2:J) = 0;
+    v(1,2:J) = -v(2,2:J);
     % Right boundary
-    u(I,:) = 0;
-    v(I+1,:) = -v(I,:);
+    u(I,2:J) = 0;
+    v(I+1,2:J) = -v(I,2:J);
     % Bottom boundary
-    u(:,1) = -u(:,2);
-    v(:,1) = 0;
+    u(2:I,1) = -u(2:I,2);
+    v(2:I,1) = 0;
     % Top boundary
-    u(:,J+1) = 0;
-    U = (u(:,J) + u(:,J+1))/2;
-    u(:,J+1) = 2*U-u(:,J);
-    v(:,J) = 0;
-
+    u(2:I,J) = 2*uLid-u(2:I,J-1);
+    v(2:I,J-1) = 0;
     %% Solving for velocity u and v
     [u, v] = solveUV(u,v,dX,dY,dT,I,J,gamma,nu);
 
@@ -157,16 +155,17 @@ u = ((sin(pi*x_u).^2).*sin(2*pi*y_u));
 v = -((sin(pi*y_v)).^2).*sin(2*pi*x_v);
 u =u';
 v = v';
-[nXu, nYu] = size(u); % Grabs the size of the rows and columns in u
-[nXv, nYv] = size(v); % Grabs the size of the rows and columns in v
-I = max([nXu nXv]);
-J = max([nYu, nYv]);
 
-% Creating p meshes
+% Calculating indicies 
+I = length(xu);
+J = length(yv);
+
+% Creating p points and grid
 x_p = dX/2:dX:L-dX/2;
 y_p = dY/2:dY:L-dY/2;
 p = zeros(I+1,J+1);
 end
+%% Function to solve for u and v
 %% Function to solve for u and v
 function [u, v] = solveUV(u,v,dX,dY,dT,I,J,gamma,nu)
 % Part a
@@ -184,8 +183,8 @@ v = v + dT*(nu * part_a_v - part_b_v - part_c_v);
 end
 %% Approximate functions for u
 function out = d2u_dx2_plus_d2u_dy2(u,dX,dY,I,J)
-d2u_dx2 = zeros(I-1,J);
-d2u_dy2 = zeros(I-1,J);
+d2u_dx2 = zeros(I,J+1);
+d2u_dy2 = zeros(I,J+1);
 for j = 2:J
     for i = 2:I-1
         d2u_dx2(i,j) = (u(i+1,j) - 2*u(i,j) + u(i-1,j))/dX^2;
@@ -195,10 +194,10 @@ end
 out = d2u_dx2 + d2u_dy2;
 end
 function out = du2_dx(u,dX,I,J,gamma)
-out = zeros(I-1,J);
+out = zeros(I,J+1);
 for j = 2:J
     for i = 2:I-1
-        out(i-1,j-1) = (1/dX)...
+        out(i,j) = (1/dX)...
             *(((u(i,j) + u(i+1,j))/2)^2 ...
             -(((u(i-1,j) + u(i,j))/2)^2)) ...
             +(gamma/dX)...
@@ -210,13 +209,13 @@ for j = 2:J
 end
 end
 function out = duv_dy(u,v,dY,I,J,gamma)
-out = zeros(I-1,J);
+out = zeros(I,J+1);
 for j = 2:J
     for i = 2:I-1
-        out(i-1,j-1) = (1/dY)...
+        out(i,j) = (1/dY)...
             *(((v(i,j)+v(i+1,j))/2)...
             *((u(i,j+1)+u(i,j))/2)...
-            -(v(i,j-1)+v(i+1,j-1)/2)...
+            -((v(i,j-1)+v(i+1,j-1))/2)...
             *((u(i,j-1)+u(i,j))/2))...
             +(gamma/dY)...
             *(abs((v(i,j) + v(i+1,j)))/2 ...
@@ -228,21 +227,21 @@ end
 end
 %% Approximate functions for v
 function out = d2v_dx2_plus_d2v_dy2(v,dX,dY,I,J)
-d2v_dx2 = zeros(I,J-1);
-d2v_dy2 = zeros(I,J-1);
+d2v_dx2 = zeros(I+1,J);
+d2v_dy2 = zeros(I+1,J);
 for j = 2:J-1
     for i = 2:I
-        d2v_dx2(i-1,j-1) = (v(i+1,j) - 2*v(i,j) + v(i-1,j))/dX^2;
-        d2v_dy2(i-1,j-1) = (v(i,j+1) - 2*v(i,j) + v(i,j-1))/dY^2;
+        d2v_dx2(i,j) = (v(i+1,j) - 2*v(i,j) + v(i-1,j))/dX^2;
+        d2v_dy2(i,j) = (v(i,j+1) - 2*v(i,j) + v(i,j-1))/dY^2;
     end
 end
 out = d2v_dx2 + d2v_dy2;
 end
 function out = dv2_dy(v,dY,I,J,gamma)
-out = zeros(I,J-1);
+out = zeros(I+1,J);
 for j = 2:J-1
     for i = 2:I
-        out(i-1,j-1) = (1/dY)...
+        out(i,j) = (1/dY)...
             *(((v(i,j) + v(i,j+1))/2)^2 ...
             -(((v(i,j-1) + v(i,j))/2)^2)) ...
             +(gamma/dY)...
@@ -254,13 +253,13 @@ for j = 2:J-1
 end
 end
 function out = duv_dx(u,v,dX,I,J,gamma)
-out = zeros(I,J-1);
+out = zeros(I+1,J);
 for j = 2:J-1
     for i = 2:I
-        out(i-1,j-1) = (1/dX)...
+        out(i,j) = (1/dX)...
             *(((v(i+1,j)+v(i,j))/2)...
             *((u(i,j+1)+u(i,j))/2)...
-            -(v(i-1,j)+v(i,j)/2)...
+            -((v(i-1,j)+v(i,j))/2)...
             *((u(i-1,j+1)+u(i-1,j))/2))...
             +(gamma/dX)...
             *(abs((u(i,j+1)+u(i,j)))/2 ...
