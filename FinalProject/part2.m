@@ -13,15 +13,50 @@ nu = 0.01;
 rho = 1;
 C = 1;
 tFinal  = 4;
+Tolfac = 10^(-7);
+L_inf_residual = 10^10;
+omega = 0.1;
 
 %% Calcluated inputs
 dT = C * min(1/4 * dX^2/nu);
 time = 0:dT:tFinal;
 
 %% Initializing nodes and applying initial conditions
-[u,v,xu,yu,xv,yv,x_p,y_p,I,J] = generateNodes(dX, dY, L);
-g = zeros(length(2:I),length(2:J));
+[u,v,xu,yu,xv,yv,p_k,x_p,y_p,I,J] = generateNodes(dX, dY, L);
+g = zeros(I+1,J+1);
+res = zeros(I+1,J+1);
+eW = zeros(1,I+1);
+eE = zeros(1,I+1);
+eN = zeros(1,J+1);
 
+%% Calculating indicator functions
+% eW
+for i = 2:I
+    if i == 2
+        eW(i) = 0;
+    end
+    if i > 2
+        eW(i) = 1;
+    end
+end
+% eE
+for i = 2:I
+    if i < I
+        eE(i) = 1;
+    end
+    if i == I 
+        eE(i) = 0;
+    end
+end
+% eN
+for j = 2:J
+    if j < J
+        eN(j) = 1;
+    end
+    if j == J
+        eN(j) = 0;
+    end
+end
 % Main loop
 for t = 1:length(0:dT:tFinal)
     %% Applying boundary conditions to the velocity field
@@ -46,13 +81,39 @@ for t = 1:length(0:dT:tFinal)
     %% Computing the PPE source term
     for j = 2:J
         for i = 2:I
-            g(i-1,j-1) = (rho/dT)*(((u(i,j) - u(i-1,j)))/dX + ((v(i,j) - v(i,j-1))/dY));
+            g(i,j) = (rho/dT)*(((u(i,j) - u(i-1,j)))/dX + ((v(i,j) - v(i,j-1))/dY));
         end
     end
-    nX = length(2:I);
-    nY = length(2:J);
-    B = reshape(g, [nX*nY, 1]);
+    B = reshape(g, [(I+1)*(J+1), 1]);
     L = norm(B, 'inf');
+    Tol = L*Tolfac;
+
+    %% Calculating pressure
+    p_kp1 = p_k;
+    while (L_inf_residual > Tol)
+        for j = 2:J
+            for i = 2:I
+                % Caclulating p_kp1
+                p_kp1(i,j) = p_k(i,j)*(1-omega) ...
+                    + omega/(eE(i)+eW(i)+eN(j)+1) ...
+                    * ((eE(i)*p_k(i+1,j)+p_kp1(i,j-1)) ...
+                    + (eN(j)*p_k(i,j+1)+p_kp1(i,j-1))) ...
+                    - g(i,j)*dX^2;
+
+                % Calculating residual
+                res(i,j) = (eE(i)*(p_k(i+1,j)-p_k(i,j)) ...
+                    + eW(i)*(p_k(i-1,j)-p_k(i,j)) ...
+                    + eN(j)*(p_k(i,j+1)-p_k(i,j)) ...
+                    + (p_k(i,j-1)-p_k(i,j)))/dX - g(i,j);
+            end
+        end
+        % Calculating L inf norm of the residual
+        B = reshape(res, [(I+1)*(J+1), 1]);
+        L_inf_residual = norm(B, 'inf')
+
+        % Setting the previous iteration equal to the new one
+        p_k = p_kp1;
+    end
 end
 %% Plots-------------------------------------------------------------------
 % Plot 1 - u velocity
@@ -78,7 +139,7 @@ ylabel('y')
 title('Pressure')
 % Plot 4 - validation (add this in later)
 %% Function to generate U nodes
-function [u,v,xu,yu,xv,yv,x_p,y_p,I,J] = generateNodes(dX, dY, L)
+function [u,v,xu,yu,xv,yv,p,x_p,y_p,I,J] = generateNodes(dX, dY, L)
 % Nodes in x
 xu = 0:dX:L;
 xv = -dX/2:dX:L+dX/2;
@@ -87,7 +148,7 @@ xv = -dX/2:dX:L+dX/2;
 yu = -dY/2:dY:L+dY/2;
 yv = 0:dY:L;
 
-% Creating points
+% Creating u and v meshes
 [y_u, x_u] = meshgrid(xu, yu);
 [y_v, x_v] = meshgrid(xv, yv);
 
@@ -98,10 +159,13 @@ u =u';
 v = v';
 [nXu, nYu] = size(u); % Grabs the size of the rows and columns in u
 [nXv, nYv] = size(v); % Grabs the size of the rows and columns in v
-x_p = dX/2:dX:L-dX/2;
-y_p = dY/2:dY:L-dY/2;
 I = max([nXu nXv]);
 J = max([nYu, nYv]);
+
+% Creating p meshes
+x_p = dX/2:dX:L-dX/2;
+y_p = dY/2:dY:L-dY/2;
+p = zeros(I+1,J+1);
 end
 %% Function to solve for u and v
 function [u, v] = solveUV(u,v,dX,dY,dT,I,J,gamma,nu)
@@ -115,27 +179,23 @@ part_b_v = dv2_dy(v,dY,I,J,gamma);
 part_c_u = duv_dy(u,v,dY,I,J,gamma);
 part_c_v = duv_dx(u,v,dX,I,J,gamma);
 % Computing u and v
-u(2:I-1, 2:J) = u(2:I-1, 2:J) + dT*(nu * part_a_u - part_b_u - part_c_u);
-v(2:I, 2:J-1) = v(2:I, 2:J-1) + dT*(nu * part_a_v - part_b_v - part_c_v);
+u = u + dT*(nu * part_a_u - part_b_u - part_c_u);
+v = v + dT*(nu * part_a_v - part_b_v - part_c_v);
 end
 %% Approximate functions for u
 function out = d2u_dx2_plus_d2u_dy2(u,dX,dY,I,J)
-nX = length(2:I-1);
-nY = length(2:J);
-d2u_dx2 = zeros(nX,nY);
-d2u_dy2 = zeros(nX,nY);
+d2u_dx2 = zeros(I-1,J);
+d2u_dy2 = zeros(I-1,J);
 for j = 2:J
     for i = 2:I-1
-        d2u_dx2(i-1,j-1) = (u(i+1,j) - 2*u(i,j) + u(i-1,j))/dX^2;
-        d2u_dy2(i-1,j-1) = (u(i,j+1) - 2*u(i,j) + u(i,j-1))/dY^2;
+        d2u_dx2(i,j) = (u(i+1,j) - 2*u(i,j) + u(i-1,j))/dX^2;
+        d2u_dy2(i,j) = (u(i,j+1) - 2*u(i,j) + u(i,j-1))/dY^2;
     end
 end
 out = d2u_dx2 + d2u_dy2;
 end
 function out = du2_dx(u,dX,I,J,gamma)
-nX = length(2:I-1);
-nY = length(2:J);
-out = zeros(nX,nY);
+out = zeros(I-1,J);
 for j = 2:J
     for i = 2:I-1
         out(i-1,j-1) = (1/dX)...
@@ -150,9 +210,7 @@ for j = 2:J
 end
 end
 function out = duv_dy(u,v,dY,I,J,gamma)
-nX = length(2:I-1);
-nY = length(2:J);
-out = zeros(nX,nY);
+out = zeros(I-1,J);
 for j = 2:J
     for i = 2:I-1
         out(i-1,j-1) = (1/dY)...
@@ -170,10 +228,8 @@ end
 end
 %% Approximate functions for v
 function out = d2v_dx2_plus_d2v_dy2(v,dX,dY,I,J)
-nX = length(2:I);
-nY = length(2:J-1);
-d2v_dx2 = zeros(nX,nY);
-d2v_dy2 = zeros(nX,nY);
+d2v_dx2 = zeros(I,J-1);
+d2v_dy2 = zeros(I,J-1);
 for j = 2:J-1
     for i = 2:I
         d2v_dx2(i-1,j-1) = (v(i+1,j) - 2*v(i,j) + v(i-1,j))/dX^2;
@@ -183,9 +239,7 @@ end
 out = d2v_dx2 + d2v_dy2;
 end
 function out = dv2_dy(v,dY,I,J,gamma)
-nX = length(2:I);
-nY = length(2:J-1);
-out = zeros(nX,nY);
+out = zeros(I,J-1);
 for j = 2:J-1
     for i = 2:I
         out(i-1,j-1) = (1/dY)...
@@ -200,9 +254,7 @@ for j = 2:J-1
 end
 end
 function out = duv_dx(u,v,dX,I,J,gamma)
-nX = length(2:I);
-nY = length(2:J-1);
-out = zeros(nX,nY);
+out = zeros(I,J-1);
 for j = 2:J-1
     for i = 2:I
         out(i-1,j-1) = (1/dX)...
