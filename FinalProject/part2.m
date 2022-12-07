@@ -43,34 +43,32 @@ for t = 1:length(0:dT:tFinal)
     nX = length(2:nXu);
     nY = length(2:nYv);
     B = reshape(g, [nX*nY, 1]);
-    L = norm(B, "inf");
+    L = norm(B, 'inf');
 end
+%% Plots-------------------------------------------------------------------
+% Plot 1 - u velocity
+figure("units","normalized","position",[0,0.33,0.3,0.3])
+surf(x_u,y_u,u)
+xlabel('x')
+ylabel('y')
+set(gca('fontsize'),26)
+title('u')
+% Plot 2 - v velocity
+figure('units','normalized','position',[0,0.01,0.3,0.3])
+surf(x_v,y_v,v)
+xlabel('x')
+ylabel('y')
+set(gca,'fontsize',26)
+title('v')
+% Plot 3 - pressure
+figure('uints','normalized','position',[0.33,0.01,0.32,0.32])
+surf(x_p,y_p,p)
+set(gca,'fontsize',26)
+xlabel('x')
+ylabel('y')
+title('Pressure')
+% Plot 4
 
-%% Plot 1
-figure('units','normalized','position',[0.3,0.65,0.4,0.4])
-quiver(x_p,y_p,uCenter,vCenter,2)
-set(gca,'fontsize',26)
-xlim([-0.2,1.2])
-ylim([0,1])
-xlabel('x_p')
-ylabel('y_p')
-title('Velocity Field')
-%% Plot 2
-figure('units','normalized','position',[0.3,0,0.4,0.4])
-contour(x_p,y_p,umag,'ShowText','on')
-set(gca,'fontsize',26)
-xlim([0,1])
-ylim([0,1])
-xlabel('x_p')
-ylabel('y_p')
-title('Velocity Magnitude')
-%% Plot 3
-figure('units','normalized','position',[0.65,0.01,0.5,0.5])
-plot(time,KE,'-')
-set(gca,'fontsize',26)
-xlabel('time (s)')
-%legend('\nu=0.005','\nu=0.01','\nu=0.05')
-title('Total Kinetic Energy')
 %% Function to generate U nodes
 function [u,v,xu,yu,xv,yv,x_p,y_p,nXu,nYu,nXv,nYv] = generateNodes(dX, dY, L)
 % Nodes in x
