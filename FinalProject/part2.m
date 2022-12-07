@@ -68,18 +68,18 @@ for t = 1:length(0:dT:tFinal)
     u(I,2:J) = 0;
     v(I+1,2:J) = -v(I,2:J);
     % Bottom boundary
-    u(2:I,1) = -u(2:I,2);
+    u(2:I,1) = 0;
     v(2:I,1) = 0;
     % Top boundary
     u(2:I,J) = 2*uLid-u(2:I,J-1);
-    v(2:I,J-1) = 0;
+    v(2:I,J) = 0;
     %% Solving for velocity u and v
     [u, v] = solveUV(u,v,dX,dY,dT,I,J,gamma,nu);
 
     %% Computing the PPE source term
     for j = 2:J
         for i = 2:I
-            g(i,j) = (rho/dT)*(((u(i,j) - u(i-1,j)))/dX + ((v(i,j) - v(i,j-1))/dY));
+            g(i,j) = (rho/dT)*((u(i,j) - u(i-1,j))/dX + (v(i,j) - v(i,j-1))/dY);
         end
     end
     B = reshape(g, [(I+1)*(J+1), 1]);
@@ -91,23 +91,27 @@ for t = 1:length(0:dT:tFinal)
     while (L_inf_residual > Tol)
         for j = 2:J
             for i = 2:I
+                % Caclulating spectral radius and optimum omega
+                lambda = 0.5*(cos(pi*i)/I + cos(pi*j)/J);
+                omega = 2/(1 + sqrt(1-lambda^2));
+
                 % Caclulating p_kp1
                 p_kp1(i,j) = p_k(i,j)*(1-omega) ...
                     + omega/(eE(i)+eW(i)+eN(j)+1) ...
-                    * ((eE(i)*p_k(i+1,j)+p_kp1(i,j-1)) ...
+                    * (((eE(i)*p_k(i+1,j)+eW(i)*p_kp1(i-1,j)) ...
                     + (eN(j)*p_k(i,j+1)+p_kp1(i,j-1))) ...
-                    - g(i,j)*dX^2;
+                    - g(i,j)*dX^2);
 
                 % Calculating residual
                 res(i,j) = (eE(i)*(p_k(i+1,j)-p_k(i,j)) ...
                     + eW(i)*(p_k(i-1,j)-p_k(i,j)) ...
                     + eN(j)*(p_k(i,j+1)-p_k(i,j)) ...
-                    + (p_k(i,j-1)-p_k(i,j)))/dX - g(i,j);
+                    + (p_k(i,j-1)-p_k(i,j)))/dX^2 - g(i,j);
             end
         end
         % Calculating L inf norm of the residual
         B = reshape(res, [(I+1)*(J+1), 1]);
-        L_inf_residual = norm(B, 'inf')
+        L_inf_residual = norm(B, 'inf');
 
         % Setting the previous iteration equal to the new one
         p_k = p_kp1;
@@ -116,21 +120,21 @@ end
 %% Plots-------------------------------------------------------------------
 % Plot 1 - u velocity
 figure("units","normalized","position",[0,0.33,0.3,0.3])
-surf(x_u,y_u,u)
+surf(xu,yu,u')
 xlabel('x')
 ylabel('y')
-set(gca('fontsize'),26)
+set(gca,'fontsize',26)
 title('u')
 % Plot 2 - v velocity
 figure('units','normalized','position',[0,0.01,0.3,0.3])
-surf(x_v,y_v,v)
+surf(xv,yv,v')
 xlabel('x')
 ylabel('y')
 set(gca,'fontsize',26)
 title('v')
 % Plot 3 - pressure
-figure('uints','normalized','position',[0.33,0.01,0.32,0.32])
-surf(x_p,y_p,p)
+figure('units','normalized','position',[0.33,0.01,0.32,0.32])
+surf(x_p,y_p,p_k')
 set(gca,'fontsize',26)
 xlabel('x')
 ylabel('y')

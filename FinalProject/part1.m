@@ -22,24 +22,24 @@ time = 0:dT:tFinal;
 
 % Allocating arrays
 KE = zeros(1, length(time));
-% uCenter = zeros(I-1,J-1);
-% vCenter = zeros(I-1,J-1);
+uCenter = zeros(I-1,J-1);
+vCenter = zeros(I-1,J-1);
 
 % Solving u and v
 for i = 1:length(0:dT:tFinal)
     %% Applying boundary conditions to the velocity field
     % Left boundary
     u(1,2:J) = 0;
-%     v(1,2:J) = -v(2,2:J);
+    v(1,2:J) = -v(2,2:J);
     % Right boundary
     u(I,:) = 0;
-%     v(I+1,2:J) = -v(I,2:J);
+    v(I+1,2:J) = -v(I,2:J);
     % Bottom boundary
     u(:,1) = 0;
-%     v(2:I,1) = 0;
+    v(2:I,1) = 0;
     % Top boundary
     u(:,J+1) = 0;
-%     v(2:I,J) = 0;
+    v(2:I,J) = 0;
    
     %% Solving for u and v
     [u, v] = solveUV(u,v,dX,dY,dT,I,J,gamma,nu);
