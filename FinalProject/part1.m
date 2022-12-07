@@ -2,7 +2,6 @@
 % 12/04/2022
 % ME 573 - Final Project
 clc; close all; clear
-format long;
 
 % Simulation inputs 
 dX = 0.05;
@@ -10,8 +9,8 @@ dY = 0.05;
 L = 1;
 gamma = 0;
 nu = 0.005;
-C = 0.01;
-tFinal  = 0.01;
+C = 0.00001;
+tFinal  = 0.1;
 
 % Calcluated inputs
 dT = C * min(1/4 * dX^2/nu);
@@ -44,9 +43,10 @@ for i = 1:length(0:dT:tFinal)
     u(:,J+1) = 2*U-u(:,J);
     v(:,J) = 0;
    
-%     % Solving for u and v
-%     [u, v] = solveUV(u,v,dX,dY,dT,I,J,gamma,nu);
+    %% Solving for u and v
+    [u, v] = solveUV(u,v,dX,dY,dT,I,J,gamma,nu);
 
+    %% Computing the umag and kenetic energy
     % Getting the centers of all of the u nodes
     for j = 2:J-1
         for  k = 2:I-1
@@ -91,7 +91,6 @@ figure('units','normalized','position',[0.65,0.01,0.5,0.5])
 plot(time,KE,'-')
 set(gca,'fontsize',26)
 xlabel('time (s)')
-%legend('\nu=0.005','\nu=0.01','\nu=0.05')
 title('Total Kinetic Energy')
 %% Function to generate U nodes
 function [u,v,xu,yu,xv,yv,x_p,y_p,I,J] = generateNodes(dX, dY, L)
