@@ -9,7 +9,7 @@ dX = 0.05;
 dY = 0.05; 
 L = 1;
 gamma = 0.5;
-nu = 0.5;
+nu = 0.005;
 C = 0.01;
 tFinal  = 1.2;
 
@@ -29,18 +29,13 @@ vCenter = zeros(I-1,J-1);
 for i = 1:length(0:dT:tFinal)
     %% Applying boundary conditions to the velocity field
     % Left boundary
-    u(1,2:J) = 0;
-    v(1,2:J) = -v(2,2:J);
+    u(1,:) = 0;
     % Right boundary
     u(I,:) = 0;
-    v(I+1,2:J) = -v(I,2:J);
     % Bottom boundary
     u(:,1) = 0;
-    v(2:I,1) = 0;
     % Top boundary
     u(:,J+1) = 0;
-    v(2:I,J) = 0;
-   
     %% Solving for u and v
     [u, v] = solveUV(u,v,dX,dY,dT,I,J,gamma,nu);
 
