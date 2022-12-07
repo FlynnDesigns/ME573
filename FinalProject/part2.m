@@ -1,6 +1,6 @@
 % Nathan Flynn
 % 12/04/2022
-% ME 573 - Final Project
+% ME 573 - Final Project part 2
 clc; close all; clear
 format long;
 
@@ -8,10 +8,11 @@ format long;
 dX = 0.05;
 dY = 0.05; 
 L = 1;
-gamma = 1;
-nu = 0.005;
-C = 0.0001;
-tFinal  = 0.02;
+gamma = 0;
+nu = 0.01;
+rho = 1;
+C = 1;
+tFinal  = 4;
 
 % Calcluated inputs
 dT = C * min(1/4 * dX^2/nu);
@@ -20,15 +21,9 @@ time = 0:dT:tFinal;
 % Initializing nodes and applying initial conditions
 [u,v,xu,yu,xv,yv,x_p,y_p,nXu,nYu,nXv,nYv] = generateNodes(dX, dY, L);
 
-% Allocating arrays
-KE = zeros(1, length(time));
-KE(1) = 0;
-vCenter = zeros(nYv-1, nYv-1);
-uCenter = zeros(nXu-1,nXu-1);
-
-% Solving u and v
-for i = 1:length(0:dT:tFinal)
-    % Applying boundary conditions
+% Main loop
+for t = 1:length(0:dT:tFinal)
+    % Applying boundary conditions to the velocity field
     u(1,:) = 0;
     v(1,:) = 0;
     u(nXu,:) = 0;
@@ -36,30 +31,19 @@ for i = 1:length(0:dT:tFinal)
     v(:,1) = 0;
     v(:,nYv) = 0;
    
-    % Solving for u and v
+    % Solving for velocity u and v
     [u, v] = solveUV(u, v, dX, dY, dT, nXu, nYu, nXv, nYv, 1, 1);
 
-    % Getting the centers of all of the u nodes
-    uCenter = zeros(nXu-1,nXu-1);
-    for j = 2:nYu-1
-        for  k = 2:nXu
-            uCenter(k-1,j-1) = (u(k-1,j) + u(k,j))/2;
+    % Computing the PPE source term
+    for j = 2:nYv
+        for i = 2:nXu
+            g(i-1,j-1) = (rho/dT)*(((u(i,j) - u(i-1,j)))/dX + ((v(i,j) - v(i,j-1))/dY));
         end
     end
-
-    % Getting the centers of all of the v nodes 
-    vCenter = zeros(nYv-1, nYv-1);
-    for j = 2:nYv % running through y
-        for k = 2:nXv-1 % running through x
-            vCenter(k-1,j-1) = (v(k,j-1) + v(k,j))/2;
-        end
-    end
-
-    % Calculating the velocity magnitude
-    umag = sqrt(uCenter.^2 + vCenter.^2);
-
-    % Calculating the kenetic energy (KE)
-    KE(i) = KE(i) + sum(0.5*dX*dY*(uCenter.^2 + vCenter.^2),"All");
+    nX = length(2:nXu);
+    nY = length(2:nYv);
+    B = reshape(g, [nX*nY, 1]);
+    L = norm(B, "inf");
 end
 
 %% Plot 1
