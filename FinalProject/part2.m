@@ -19,7 +19,7 @@ omega = 0.1;
 uLid = 1;
 
 %% Calcluated inputs
-dT = C * min(1/4 * dX^2/nu);
+dT = C * min(1/4 * dX^2/nu, dX/uLid);
 time = 0:dT:tFinal;
 
 %% Initializing nodes and applying initial conditions
@@ -50,7 +50,7 @@ for i = 2:I
     end
 end
 % eN
-for j = 2:J
+for j = 1:J
     if j < J
         eN(j) = 1;
     end
@@ -68,17 +68,17 @@ for t = 1:length(0:dT:tFinal)
     u(I,2:J) = 0;
     v(I+1,2:J) = -v(I,2:J);
     % Bottom boundary
-    u(2:I,1) = 0;
+    u(2:I,1) = -u(2:I,2);
     v(2:I,1) = 0;
     % Top boundary
-    u(2:I,J) = 2*uLid-u(2:I,J-1);
+    u(2:I,J) = 2*uLid-u(2:I,J);
     v(2:I,J) = 0;
     %% Solving for velocity u and v
     [u, v] = solveUV(u,v,dX,dY,dT,I,J,gamma,nu);
 
     %% Computing the PPE source term
-    for j = 2:J
-        for i = 2:I
+    for j = 2:J-1
+        for i = 2:I-1
             g(i,j) = (rho/dT)*((u(i,j) - u(i-1,j))/dX + (v(i,j) - v(i,j-1))/dY);
         end
     end
@@ -116,6 +116,21 @@ for t = 1:length(0:dT:tFinal)
         % Setting the previous iteration equal to the new one
         p_k = p_kp1;
     end
+
+    %% Solving for u and v
+    % Solving for u
+    for j = 2:J
+        for i = 2:I-1
+            u(i,j) = u(i,j) - dT/(rho*dX)*(p_kp1(i+1,j)-p_kp1(i,j));
+        end
+    end
+
+    % Solving for v
+    for j = 2:J-1
+        for i = 2:I
+            v(i,j) = v(i,j) - dT/(rho*dY)*(p_kp1(i,j+1)-p_kp1(i,j));
+        end
+    end
 end
 %% Plots-------------------------------------------------------------------
 % Plot 1 - u velocity
@@ -150,26 +165,19 @@ xv = -dX/2:dX:L+dX/2;
 yu = -dY/2:dY:L+dY/2;
 yv = 0:dY:L;
 
-% Creating u and v meshes
-[y_u, x_u] = meshgrid(xu, yu);
-[y_v, x_v] = meshgrid(xv, yv);
-
 % Applying initial conditions
-u = ((sin(pi*x_u).^2).*sin(2*pi*y_u));
-v = -((sin(pi*y_v)).^2).*sin(2*pi*x_v);
-u =u';
-v = v';
+u = zeros(length(xu),length(yu));
+v = zeros(length(xv),length(yv));
 
 % Calculating indicies 
 I = length(xu);
 J = length(yv);
 
 % Creating p points and grid
-x_p = dX/2:dX:L-dX/2;
-y_p = dY/2:dY:L-dY/2;
+x_p = -dX/2:dX:L+dX/2;
+y_p = -dY/2:dY:L+dY/2;
 p = zeros(I+1,J+1);
 end
-%% Function to solve for u and v
 %% Function to solve for u and v
 function [u, v] = solveUV(u,v,dX,dY,dT,I,J,gamma,nu)
 % Part a
