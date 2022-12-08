@@ -14,7 +14,6 @@ rho = 1;
 C = 1;
 tFinal  = 4;
 Tolfac = 10^(-7);
-L_inf_residual = 10^10;
 omega = 0.1;
 uLid = 1;
 
@@ -29,6 +28,7 @@ res = zeros(I+1,J+1);
 eW = zeros(1,I+1);
 eE = zeros(1,I+1);
 eN = zeros(1,J+1);
+p_kp1 = p_k;
 
 %% Calculating indicator functions
 % eW
@@ -61,25 +61,27 @@ end
 % Main loop
 for t = 1:length(0:dT:tFinal)
     %% Applying boundary conditions to the velocity field
+    j = 2:J;
+    i = 2:I;
     % Left boundary
-    u(1,2:J) = 0;
-    v(1,2:J) = -v(2,2:J);
+    u(1,j) = 0;
+    v(1,j) = -v(2,j);
     % Right boundary
-    u(I,2:J) = 0;
-    v(I+1,2:J) = -v(I,2:J);
+    u(I,j) = 0;
+    v(I+1,j) = -v(I,j);
     % Bottom boundary
-    u(2:I,1) = -u(2:I,2);
-    v(2:I,1) = 0;
+    u(i,1) = -u(i,2);
+    v(i,1) = 0;
     % Top boundary
-    u(2:I,J) = 2*uLid-u(2:I,J);
-    v(2:I,J) = 0;
+    u(i,J+1) = 2*uLid-u(i,J);
+    v(i,J) = 0;
     %% Solving for velocity u and v
-    [u, v] = solveUV(u,v,dX,dY,dT,I,J,gamma,nu);
+    [u_star, v_star] = solveUV(u,v,dX,dY,dT,I,J,gamma,nu);
 
     %% Computing the PPE source term
-    for j = 2:J-1
-        for i = 2:I-1
-            g(i,j) = (rho/dT)*((u(i,j) - u(i-1,j))/dX + (v(i,j) - v(i,j-1))/dY);
+    for j = 2:J
+        for i = 2:I
+            g(i,j) = (rho/dT)*((u_star(i,j) - u_star(i-1,j))/dX + (v_star(i,j) - v_star(i,j-1))/dY);
         end
     end
     B = reshape(g, [(I+1)*(J+1), 1]);
@@ -87,7 +89,7 @@ for t = 1:length(0:dT:tFinal)
     Tol = L*Tolfac;
 
     %% Calculating pressure
-    p_kp1 = p_k;
+    L_inf_residual = 10^10;
     while (L_inf_residual > Tol)
         for j = 2:J
             for i = 2:I
@@ -121,14 +123,13 @@ for t = 1:length(0:dT:tFinal)
     % Solving for u
     for j = 2:J
         for i = 2:I-1
-            u(i,j) = u(i,j) - dT/(rho*dX)*(p_kp1(i+1,j)-p_kp1(i,j));
+            u(i,j) = u_star(i,j) - dT/(rho*dX)*(p_kp1(i+1,j)-p_kp1(i,j));
         end
     end
-
     % Solving for v
     for j = 2:J-1
         for i = 2:I
-            v(i,j) = v(i,j) - dT/(rho*dY)*(p_kp1(i,j+1)-p_kp1(i,j));
+            v(i,j) = v_star(i,j) - dT/(rho*dY)*(p_kp1(i,j+1)-p_kp1(i,j));
         end
     end
 end
@@ -140,6 +141,7 @@ xlabel('x')
 ylabel('y')
 set(gca,'fontsize',26)
 title('u')
+
 % Plot 2 - v velocity
 figure('units','normalized','position',[0,0.01,0.3,0.3])
 surf(xv,yv,v')
@@ -147,6 +149,7 @@ xlabel('x')
 ylabel('y')
 set(gca,'fontsize',26)
 title('v')
+
 % Plot 3 - pressure
 figure('units','normalized','position',[0.33,0.01,0.32,0.32])
 surf(x_p,y_p,p_k')
@@ -154,7 +157,45 @@ set(gca,'fontsize',26)
 xlabel('x')
 ylabel('y')
 title('Pressure')
-% Plot 4 - validation (add this in later)
+
+% Plot 4 - u validation 
+y_p_d=[1.0000 0.9766  0.9688 0.9609  0.9531 0.8516  0.7344 0.6172 0.5000 0.4531 0.2813 0.1719  0.1016 ...
+0.0703 0.0625 0.0547 0.0000];%y coordinate
+u_re100=[1.0000 0.8412 0.7887 0.7372 0.68717 0.2315 0.0033  -0.1364  -0.2058  -0.2109  -0.1566 ...
+-0.1015  -0.0643  -0.04775  -0.0419  -0.0371 0.0000];% Re=100
+figure
+u_results = u(0.5/dX,:);
+plot(y_p_d, u_re100)
+hold on;
+plot(y_p,u_results,"*")
+hold off;
+xlim([-0.2,1.2])
+ylim([-0.4,1.2])
+legend("Re=100 data", "Re=100 computation",'Location','northwest')
+title('u vs Y comparison (at X=0.5)')
+xlabel('y')
+ylabel('u')
+
+% Plot 5 - v validation 
+% Experimental data
+x_p_d=[1.0000 0.9688 0.9609 0.9531 0.9453 0.9063 0.8594 0.8047 0.5000 0.2344 0.2266 0.1563 0.0938 ...
+0.0781 0.0703 0.0625 0.0000];
+v_re100=[0.0000 -0.05906  -0.0739 -0.0886 -0.10313 -0.16914 -0.22445 -0.24533 0.05454 0.17527 ...
+0.17507 0.16077 0.12317 0.1089 0.1009 0.0923 0.0000];
+% My results
+v_results = v(:,0.5/dY);
+figure
+hold on;
+plot(x_p_d,v_re100)
+plot(x_p,v_results,"*")
+hold off;
+xlim([-0.2,1.2])
+ylim([-0.4,0.4])
+legend("Re=100 data", "Re=100 computation",'Location','northwest')
+title('v vs X comparison (at Y=0.5)')
+xlabel('x')
+ylabel('v')
+
 %% Function to generate U nodes
 function [u,v,xu,yu,xv,yv,p,x_p,y_p,I,J] = generateNodes(dX, dY, L)
 % Nodes in x
@@ -174,12 +215,12 @@ I = length(xu);
 J = length(yv);
 
 % Creating p points and grid
-x_p = -dX/2:dX:L+dX/2;
-y_p = -dY/2:dY:L+dY/2;
+x_p = 0:L/(I):L;
+y_p = 0:L/(J):L;
 p = zeros(I+1,J+1);
 end
 %% Function to solve for u and v
-function [u, v] = solveUV(u,v,dX,dY,dT,I,J,gamma,nu)
+function [u_star, v_star] = solveUV(u,v,dX,dY,dT,I,J,gamma,nu)
 % Part a
 part_a_u = d2u_dx2_plus_d2u_dy2(u,dX,dY,I,J);
 part_a_v = d2v_dx2_plus_d2v_dy2(v,dX,dY,I,J);
@@ -190,8 +231,8 @@ part_b_v = dv2_dy(v,dY,I,J,gamma);
 part_c_u = duv_dy(u,v,dY,I,J,gamma);
 part_c_v = duv_dx(u,v,dX,I,J,gamma);
 % Computing u and v
-u = u + dT*(nu * part_a_u - part_b_u - part_c_u);
-v = v + dT*(nu * part_a_v - part_b_v - part_c_v);
+u_star = u + dT*(nu * part_a_u - part_b_u - part_c_u);
+v_star = v + dT*(nu * part_a_v - part_b_v - part_c_v);
 end
 %% Approximate functions for u
 function out = d2u_dx2_plus_d2u_dy2(u,dX,dY,I,J)
