@@ -5,7 +5,7 @@ clc; close all; clear
 format long;
 %(i)
 nu = 0.5;
-[x_p,y_p,uCenter,vCenter,umag,time_i,KE_i] = run_sim(nu);
+[x_p,y_p,uCenter,vCenter,umag,time,KE,u,v] = run_sim(nu)
 % Plot 1
 figure('units','normalized','position',[0.3,0.65,0.4,0.4])
 quiver(x_p,y_p,uCenter,vCenter,2)
@@ -51,7 +51,7 @@ ylabel('y_p')
 b.FontSize = 16;
 %(iii)
 nu = 0.005;
-[x_p,y_p,uCenter,vCenter,umag,time_iii,KE_iii] = run_sim(nu);
+[x_p,y_p,uCenter,vCenter,umag,time_iii,KE_iii,u,v] = run_sim(nu);
 % Plot 1
 figure('units','normalized','position',[0.3,0.65,0.4,0.4])
 quiver(x_p,y_p,uCenter,vCenter,2)
@@ -84,7 +84,7 @@ xlabel('time (s)')
 [~,b] = title('Total Kinetic Energy','\Deltax=0.05, \Deltay=0.05, \gamma=0.5, C=0.005, Tfinal=1');
 b.FontSize = 16;
 %% Function to run the simulation (used to generate multiple plots)
-function [x_p,y_p,uCenter,vCenter,umag,time,KE] = run_sim(nu)
+function [x_p,y_p,uCenter,vCenter,umag,time,KE,u,v] = run_sim(nu)
 % Simulation inputs 
 dX = 0.05;
 dY = 0.05; 
@@ -102,33 +102,39 @@ time = 0:dT:tFinal;
 
 % Allocating arrays
 KE = zeros(1, length(time));
-uCenter = zeros(I,J);
-vCenter = zeros(I,J);
+uCenter = zeros(I+1,J+1);
+vCenter = zeros(I+1,J+1);
 
 % Solving u and v
 for i = 1:length(0:dT:tFinal)
     %% Applying boundary conditions to the velocity field
+    j = 2:J;
+    k = 2:I;
     % Left boundary
-    u(1,2:J) = 0;
+    u(1,j) = 0;
+    v(1,j) = -v(2,j);
     % Right boundary
-    u(I,2:J) = 0;
+    u(I,j) = 0;
+    v(I+1,j) = -v(I,j);
     % Bottom boundary
-    u(2:I,1) = 0;
+    u(k,1) = -u(k,2);
+    v(k,1) = 0;
     % Top boundary
-    u(2:I,J+1) = 0;
+    u(k,J+1) = 2*0-u(k,J);
+    v(k,J) = 0;
     %% Solving for u and v
     [u, v] = solveUV(u,v,dX,dY,dT,I,J,gamma,nu);
 
     %% Computing the umag and kenetic energy
     % Getting the centers of all of the u nodes
-    for k = 2:I
-        for  j = 2:J+1
-            uCenter(k,j-1) = (u(k,j) + u(k,j-1))/2;
+    for j = 2:I
+        for  k = 2:J
+            uCenter(k,j) = (u(k-1,j) + u(k,j))/2;
         end
     end
-    for k = 2:J+1
-        for j = 2:I
-            vCenter(k-1,j) = (v(k,j) + v(k-1,j))/2;
+    for j = 2:J
+        for k = 2:I
+            vCenter(k,j) = (v(k,j) + v(k,j-1))/2;
         end
     end
     % Calculating the velocity magnitude
@@ -148,18 +154,20 @@ yu = -dY/2:dY:L+dY/2;
 yv = 0:dY:L;
 
 % Creating points
-[y_u, x_u] = meshgrid(xu, yu);
-[y_v, x_v] = meshgrid(xv, yv);
+[x_u, y_u] = meshgrid(xu, yu);
+x_u = x_u';
+y_u = y_u';
+[x_v, y_v] = meshgrid(xv, yv);
+x_v = x_v';
+y_v = y_v';
 
 % Applying initial conditions
 u = ((sin(pi*x_u).^2).*sin(2*pi*y_u));
 v = -((sin(pi*y_v)).^2).*sin(2*pi*x_v);
-u = u';
-v = v';
 
 % Points for pressure 
-x_p = 0:dX:L;
-y_p = 0:dY:L;
+x_p = -dX/2:dX:L+dX/2;
+y_p = -dX/2:dY:L+dX/2;
 
 % Indicies 
 I = length(xu);
